@@ -37,16 +37,10 @@ jobs:
           echo "Copying files..."
           sshpass -p "${PASSWORD}" rsync -av \
             -e "ssh -o StrictHostKeyChecking=no" \
-            --exclude-from='.gitignore' \
             --exclude='.git/' \
-            --exclude='.gitignore' \
             --exclude='target/' \
             --exclude='.DS_Store' \
-            docker-compose.yml \
-            Dockerfile \
-            backend/ \
-            scripts/ \
-            data/ \
+            ./ \
             ${USERNAME}@${HOST}:~/docker/wol-api/
           
           # Debug: Check if docker directory exists
