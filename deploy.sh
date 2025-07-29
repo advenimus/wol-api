@@ -12,12 +12,20 @@ LOCAL_DIR="."
 
 echo "Deploying WOL API to ${REMOTE_USER}@${REMOTE_HOST}:${REMOTE_DIR}"
 
-# Create remote directory
-ssh ${REMOTE_USER}@${REMOTE_HOST} "mkdir -p ${REMOTE_DIR}"
+# Check if directory exists and create if needed
+if ssh ${REMOTE_USER}@${REMOTE_HOST} "[ -d ${REMOTE_DIR} ]"; then
+    echo "Directory exists - updating deployment..."
+else
+    echo "Creating new deployment directory..."
+    ssh ${REMOTE_USER}@${REMOTE_HOST} "mkdir -p ${REMOTE_DIR}"
+fi
 
-# Copy all necessary files
+# Copy all necessary files (respecting .gitignore)
 echo "Copying files..."
-scp -r \
+rsync -av \
+  --exclude-from='.gitignore' \
+  --exclude='.git/' \
+  --exclude='.gitignore' \
   docker-compose.yml \
   backend/ \
   scripts/ \

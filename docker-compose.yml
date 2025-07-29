@@ -9,7 +9,7 @@ services:
       - ./scripts:/home/appuser/scripts
     build:
       context: .
-      dockerfile: ./docker/Dockerfile
+      dockerfile: ./Dockerfile
     depends_on:
       - db
     ports:
