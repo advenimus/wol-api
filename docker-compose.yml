@@ -6,6 +6,7 @@ services:
       - wol-api-network
     volumes:
       - ./backend:/home/appuser
+      - ./scripts:/home/appuser/scripts
     build:
       context: .
       dockerfile: ./docker/Dockerfile

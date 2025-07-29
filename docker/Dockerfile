@@ -1,13 +1,17 @@
 FROM rust:latest
 
-RUN apt-get update && apt-get --no-install-recommends install -y iputils-ping \
+RUN apt-get update && apt-get --no-install-recommends install -y iputils-ping python3 python3-pip \
     && rm -rf /var/lib/apt/lists/*
+
+# Install Python dependencies for scraping
+RUN pip3 install --break-system-packages requests beautifulsoup4 psycopg2-binary
 
 RUN useradd --create-home appuser
 WORKDIR /home/appuser
 VOLUME /home/appuser
 
 COPY ./backend /home/appuser/
+COPY ./scripts /home/appuser/scripts/
 
 # ensure rust is on the latest stable version
 # RUN rustup update && rustup default stable
