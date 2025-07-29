@@ -13,32 +13,30 @@ jobs:
       - name: Checkout code
         uses: actions/checkout@v4
         
-      - name: Setup SSH key
-        run: |
-          mkdir -p ~/.ssh
-          echo "${{ secrets.SSH_PRIVATE_KEY }}" > ~/.ssh/id_rsa
-          chmod 600 ~/.ssh/id_rsa
-          ssh-keyscan -H ${{ vars.HOST }} >> ~/.ssh/known_hosts
+      - name: Install sshpass for password authentication
+        run: sudo apt-get update && sudo apt-get install -y sshpass
           
       - name: Deploy to server
         env:
           HOST: ${{ vars.HOST }}
-          USERNAME: ${{ secrets.USERNAME }}
+          USERNAME: ${{ secrets.SSH_USERNAME }}
+          PASSWORD: ${{ secrets.SSH_PASSWORD }}
           REMOTE_DIR: "~/docker/wol-api"
         run: |
           echo "Deploying WOL API to ${USERNAME}@${HOST}:${REMOTE_DIR}"
           
           # Check if directory exists and create if needed
-          if ssh ${USERNAME}@${HOST} "[ -d ~/docker/wol-api ]"; then
+          if sshpass -p "${PASSWORD}" ssh -o StrictHostKeyChecking=no ${USERNAME}@${HOST} "[ -d ~/docker/wol-api ]"; then
             echo "Directory exists - updating deployment..."
           else
             echo "Creating new deployment directory..."
-            ssh ${USERNAME}@${HOST} "mkdir -p ~/docker/wol-api"
+            sshpass -p "${PASSWORD}" ssh -o StrictHostKeyChecking=no ${USERNAME}@${HOST} "mkdir -p ~/docker/wol-api"
           fi
           
           # Copy all necessary files (respecting .gitignore)
           echo "Copying files..."
-          rsync -av \
+          sshpass -p "${PASSWORD}" rsync -av \
+            -e "ssh -o StrictHostKeyChecking=no" \
             --exclude-from='.gitignore' \
             --exclude='.git/' \
             --exclude='.gitignore' \
@@ -52,7 +50,7 @@ jobs:
           
           # Deploy and start the containers
           echo "Starting containers on remote server..."
-          ssh ${USERNAME}@${HOST} "cd ~/docker/wol-api && docker-compose down && docker-compose up -d --build"
+          sshpass -p "${PASSWORD}" ssh -o StrictHostKeyChecking=no ${USERNAME}@${HOST} "cd ~/docker/wol-api && docker-compose down && docker-compose up -d --build"
           
           echo "Deployment complete!"
           echo "API should be available at: http://${HOST}:8000"
