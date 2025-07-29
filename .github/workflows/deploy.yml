@@ -49,6 +49,10 @@ jobs:
             data/ \
             ${USERNAME}@${HOST}:~/docker/wol-api/
           
+          # Debug: Check if docker directory exists
+          echo "Checking directory structure on server..."
+          sshpass -p "${PASSWORD}" ssh -o StrictHostKeyChecking=no ${USERNAME}@${HOST} "ls -la ~/docker/wol-api/"
+          
           # Deploy and start the containers
           echo "Starting containers on remote server..."
           sshpass -p "${PASSWORD}" ssh -o StrictHostKeyChecking=no ${USERNAME}@${HOST} "cd ~/docker/wol-api && docker-compose down && docker-compose up -d --build"
