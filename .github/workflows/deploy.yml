@@ -1,0 +1,58 @@
+name: Deploy to Production
+
+on:
+  push:
+    branches: [ main ]
+
+jobs:
+  deploy:
+    name: Deploy to Server
+    runs-on: ubuntu-latest
+    
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+        
+      - name: Setup SSH key
+        run: |
+          mkdir -p ~/.ssh
+          echo "${{ secrets.SSH_PRIVATE_KEY }}" > ~/.ssh/id_rsa
+          chmod 600 ~/.ssh/id_rsa
+          ssh-keyscan -H ${{ secrets.HOST }} >> ~/.ssh/known_hosts
+          
+      - name: Deploy to server
+        env:
+          HOST: ${{ secrets.HOST }}
+          USERNAME: ${{ secrets.USERNAME }}
+          REMOTE_DIR: "~/docker/wol-api"
+        run: |
+          echo "Deploying WOL API to ${USERNAME}@${HOST}:${REMOTE_DIR}"
+          
+          # Check if directory exists and create if needed
+          if ssh ${USERNAME}@${HOST} "[ -d ${REMOTE_DIR} ]"; then
+            echo "Directory exists - updating deployment..."
+          else
+            echo "Creating new deployment directory..."
+            ssh ${USERNAME}@${HOST} "mkdir -p ${REMOTE_DIR}"
+          fi
+          
+          # Copy all necessary files (respecting .gitignore)
+          echo "Copying files..."
+          rsync -av \
+            --exclude-from='.gitignore' \
+            --exclude='.git/' \
+            --exclude='.gitignore' \
+            --exclude='target/' \
+            --exclude='.DS_Store' \
+            docker-compose.yml \
+            backend/ \
+            scripts/ \
+            data/ \
+            ${USERNAME}@${HOST}:${REMOTE_DIR}/
+          
+          # Deploy and start the containers
+          echo "Starting containers on remote server..."
+          ssh ${USERNAME}@${HOST} "cd ${REMOTE_DIR} && docker-compose down && docker-compose up -d --build"
+          
+          echo "Deployment complete!"
+          echo "API should be available at: http://${HOST}:8000"
