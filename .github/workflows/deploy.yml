@@ -18,22 +18,22 @@ jobs:
           mkdir -p ~/.ssh
           echo "${{ secrets.SSH_PRIVATE_KEY }}" > ~/.ssh/id_rsa
           chmod 600 ~/.ssh/id_rsa
-          ssh-keyscan -H ${{ secrets.HOST }} >> ~/.ssh/known_hosts
+          ssh-keyscan -H ${{ vars.HOST }} >> ~/.ssh/known_hosts
           
       - name: Deploy to server
         env:
-          HOST: ${{ secrets.HOST }}
+          HOST: ${{ vars.HOST }}
           USERNAME: ${{ secrets.USERNAME }}
           REMOTE_DIR: "~/docker/wol-api"
         run: |
           echo "Deploying WOL API to ${USERNAME}@${HOST}:${REMOTE_DIR}"
           
           # Check if directory exists and create if needed
-          if ssh ${USERNAME}@${HOST} "[ -d ${REMOTE_DIR} ]"; then
+          if ssh ${USERNAME}@${HOST} "[ -d ~/docker/wol-api ]"; then
             echo "Directory exists - updating deployment..."
           else
             echo "Creating new deployment directory..."
-            ssh ${USERNAME}@${HOST} "mkdir -p ${REMOTE_DIR}"
+            ssh ${USERNAME}@${HOST} "mkdir -p ~/docker/wol-api"
           fi
           
           # Copy all necessary files (respecting .gitignore)
@@ -48,11 +48,11 @@ jobs:
             backend/ \
             scripts/ \
             data/ \
-            ${USERNAME}@${HOST}:${REMOTE_DIR}/
+            ${USERNAME}@${HOST}:~/docker/wol-api/
           
           # Deploy and start the containers
           echo "Starting containers on remote server..."
-          ssh ${USERNAME}@${HOST} "cd ${REMOTE_DIR} && docker-compose down && docker-compose up -d --build"
+          ssh ${USERNAME}@${HOST} "cd ~/docker/wol-api && docker-compose down && docker-compose up -d --build"
           
           echo "Deployment complete!"
           echo "API should be available at: http://${HOST}:8000"
