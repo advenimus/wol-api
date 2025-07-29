@@ -1,4 +1,4 @@
-name: wol-api
+version: '3.8'
 
 services:
   backend:
