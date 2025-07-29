@@ -8,7 +8,25 @@ pub async fn get_verse_with_study(
     book: i32,
     chapter: i32,
     verse: i32,
+    force_fetch: bool,
 ) -> Result<Option<VerseWithStudy>, sqlx::Error> {
+    // If force_fetch is true, delete existing study content to ensure fresh scraping
+    if force_fetch {
+        println!("Force fetch requested - clearing existing study content for book {}, chapter {}", book, chapter);
+        sqlx::query("DELETE FROM study_content WHERE book_num = $1 AND chapter = $2")
+            .bind(book)
+            .bind(chapter)
+            .execute(pool)
+            .await?;
+        
+        // Also clear verse study_notes to force fresh scraping
+        sqlx::query("UPDATE verses SET study_notes = NULL WHERE book_num = $1 AND chapter = $2")
+            .bind(book)
+            .bind(chapter)
+            .execute(pool)
+            .await?;
+    }
+
     // Get the verse
     let verse_row = sqlx::query("SELECT * FROM verses WHERE book_num = $1 AND chapter = $2 AND verse_num = $3")
         .bind(book)
@@ -44,8 +62,12 @@ pub async fn get_verse_with_study(
                 cross_references: study_row.get("cross_references"),
             })
         } else {
-            // Study content missing - try to scrape it
-            println!("Study content missing for book {}, chapter {}, attempting to scrape...", book, chapter);
+            // Study content missing or force_fetch requested - try to scrape it
+            if force_fetch {
+                println!("Force fetch: attempting to scrape study content for book {}, chapter {}...", book, chapter);
+            } else {
+                println!("Study content missing for book {}, chapter {}, attempting to scrape...", book, chapter);
+            }
             
             if scrape_study_content(book, chapter).await {
                 // Retry query after scraping
@@ -72,13 +94,43 @@ pub async fn get_verse_with_study(
             }
         };
 
+        // If we force_fetch, we need to re-query the verse to get updated study_notes
+        let bible_verse = if force_fetch {
+            // Re-query the verse after scraping to get updated study_notes
+            let updated_verse_row = sqlx::query("SELECT * FROM verses WHERE book_num = $1 AND chapter = $2 AND verse_num = $3")
+                .bind(book)
+                .bind(chapter)
+                .bind(verse)
+                .fetch_optional(pool)
+                .await?;
+
+            if let Some(row) = updated_verse_row {
+                BibleVerse {
+                    book_num: row.get("book_num"),
+                    book_name: row.get("book_name"),
+                    chapter: row.get("chapter"),
+                    verse_num: row.get("verse_num"),
+                    verse_text: row.get("verse_text"),
+                    study_notes: row.get("study_notes"),
+                }
+            } else {
+                bible_verse
+            }
+        } else {
+            bible_verse
+        };
+
         Ok(Some(VerseWithStudy {
             verse: bible_verse,
             study_content,
         }))
     } else {
         // Verse not found - try to scrape it
-        println!("Verse missing for book {}, chapter {}, verse {}, attempting to scrape...", book, chapter, verse);
+        if force_fetch {
+            println!("Force fetch: attempting to scrape verse content for book {}, chapter {}, verse {}...", book, chapter, verse);
+        } else {
+            println!("Verse missing for book {}, chapter {}, verse {}, attempting to scrape...", book, chapter, verse);
+        }
         
         if scrape_verse_content(book, chapter, verse).await {
             // Retry the verse query after scraping

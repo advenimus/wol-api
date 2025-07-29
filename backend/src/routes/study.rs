@@ -4,7 +4,7 @@ use rocket::serde::json::{Json, serde_json, Value};
 use rocket::{get, State};
 use sqlx::{Pool, Postgres};
 
-#[get("/study/<book>/<chapter>/<verse>?<fields>&<limit>")]
+#[get("/study/<book>/<chapter>/<verse>?<fields>&<limit>&<fetch>")]
 pub async fn get_verse_with_study(
     pool: &State<Pool<Postgres>>,
     book: i32,
@@ -12,9 +12,11 @@ pub async fn get_verse_with_study(
     verse: i32,
     fields: Option<String>,
     limit: Option<usize>,
+    fetch: Option<bool>,
     _db_guard: DbGuard<'_>,
 ) -> Result<Json<Value>, rocket::response::status::NotFound<String>> {
-    match study_services::get_verse_with_study(pool, book, chapter, verse).await {
+    let force_fetch = fetch.unwrap_or(false);
+    match study_services::get_verse_with_study(pool, book, chapter, verse, force_fetch).await {
         Ok(Some(verse_with_study)) => {
             // Convert to JSON Value for filtering
             let mut json_value = serde_json::to_value(verse_with_study).unwrap();
