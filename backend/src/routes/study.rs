@@ -1,5 +1,7 @@
 use crate::guards::db_guard::DbGuard;
+use crate::guards::auth_guard::AuthGuard;
 use crate::services::study_services;
+use crate::models::study_content::VerseRange;
 use rocket::serde::json::{Json, serde_json, Value};
 use rocket::{get, State};
 use sqlx::{Pool, Postgres};
@@ -13,6 +15,7 @@ pub async fn get_verse_with_study(
     fields: Option<String>,
     limit: Option<usize>,
     fetch: Option<bool>,
+    _auth_guard: AuthGuard,
     _db_guard: DbGuard<'_>,
 ) -> Result<Json<Value>, rocket::response::status::NotFound<String>> {
     let force_fetch = fetch.unwrap_or(false);
@@ -29,6 +32,44 @@ pub async fn get_verse_with_study(
             Ok(Json(json_value))
         },
         Ok(None) => Err(rocket::response::status::NotFound("Verse not found".to_string())),
+        Err(e) => {
+            eprintln!("Database error: {}", e);
+            Err(rocket::response::status::NotFound("Database error".to_string()))
+        }
+    }
+}
+
+#[get("/study/<book>/<chapter>/<verse_range>", rank = 2)]
+pub async fn get_verse_range(
+    pool: &State<Pool<Postgres>>,
+    book: i32,
+    chapter: i32,
+    verse_range: String,
+    _auth_guard: AuthGuard,
+    _db_guard: DbGuard<'_>,
+) -> Result<Json<VerseRange>, rocket::response::status::NotFound<String>> {
+    // Parse verse range (e.g., "19-20")
+    if !verse_range.contains('-') {
+        return Err(rocket::response::status::NotFound("Invalid range format. Use format like '19-20'".to_string()));
+    }
+    
+    let range_parts: Vec<&str> = verse_range.split('-').collect();
+    if range_parts.len() != 2 {
+        return Err(rocket::response::status::NotFound("Invalid range format. Use format like '19-20'".to_string()));
+    }
+    
+    let start_verse: i32 = range_parts[0].parse()
+        .map_err(|_| rocket::response::status::NotFound("Invalid start verse number".to_string()))?;
+    let end_verse: i32 = range_parts[1].parse()
+        .map_err(|_| rocket::response::status::NotFound("Invalid end verse number".to_string()))?;
+    
+    if start_verse > end_verse {
+        return Err(rocket::response::status::NotFound("Start verse must be less than or equal to end verse".to_string()));
+    }
+    
+    match study_services::get_verse_range(pool, book, chapter, start_verse, end_verse).await {
+        Ok(Some(verse_range_data)) => Ok(Json(verse_range_data)),
+        Ok(None) => Err(rocket::response::status::NotFound("Verse range not found".to_string())),
         Err(e) => {
             eprintln!("Database error: {}", e);
             Err(rocket::response::status::NotFound("Database error".to_string()))

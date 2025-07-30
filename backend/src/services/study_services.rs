@@ -1,5 +1,6 @@
 use crate::models::bible_verse::BibleVerse;
-use crate::models::study_content::{StudyContent, VerseWithStudy};
+use crate::models::study_content::{StudyContent, VerseWithStudy, VerseRange};
+use rocket::serde::json::serde_json;
 use sqlx::{Pool, Postgres, Row};
 use std::process::Command;
 
@@ -231,4 +232,73 @@ async fn scrape_study_content(book: i32, chapter: i32) -> bool {
             false
         }
     }
+}
+
+pub async fn get_verse_range(
+    pool: &Pool<Postgres>,
+    book: i32,
+    chapter: i32,
+    start_verse: i32,
+    end_verse: i32,
+) -> Result<Option<VerseRange>, sqlx::Error> {
+    // Get all verses in the range
+    let verse_rows = sqlx::query("SELECT * FROM verses WHERE book_num = $1 AND chapter = $2 AND verse_num >= $3 AND verse_num <= $4 ORDER BY verse_num")
+        .bind(book)
+        .bind(chapter)
+        .bind(start_verse)
+        .bind(end_verse)
+        .fetch_all(pool)
+        .await?;
+
+    if verse_rows.is_empty() {
+        return Ok(None);
+    }
+
+    let mut combined_text = String::new();
+    let mut study_notes = Vec::new();
+    let mut book_name = String::new();
+
+    for (index, row) in verse_rows.iter().enumerate() {
+        if index == 0 {
+            book_name = row.get("book_name");
+        }
+        
+        // Add verse text to combined text
+        let verse_text: String = row.get("verse_text");
+        if index > 0 {
+            combined_text.push(' ');
+        }
+        combined_text.push_str(&verse_text);
+        
+        // Extract study notes text if present
+        let study_notes_json: Option<serde_json::Value> = row.get("study_notes");
+        if let Some(notes_json) = study_notes_json {
+            if let Some(notes_array) = notes_json.as_array() {
+                for note in notes_array {
+                    if let Some(content_array) = note.get("content").and_then(|c| c.as_array()) {
+                        for content_item in content_array {
+                            if let Some(text) = content_item.get("text").and_then(|t| t.as_str()) {
+                                study_notes.push(text.to_string());
+                            }
+                        }
+                    }
+                }
+            }
+        }
+    }
+
+    let verse_range_str = if start_verse == end_verse {
+        start_verse.to_string()
+    } else {
+        format!("{}-{}", start_verse, end_verse)
+    };
+
+    Ok(Some(VerseRange {
+        book_num: book,
+        book_name,
+        chapter,
+        verse_range: verse_range_str,
+        combined_text,
+        study_notes,
+    }))
 }

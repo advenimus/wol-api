@@ -70,6 +70,43 @@ curl "http://localhost:8000/api/v1/study/40/24/14?fields=verse.verse_text,study_
 curl "http://svrclapp1.cloudwise.ca:8000/api/v1/study/40/24/14?fields=verse.verse_text,verse.book_name,verse.book_num,verse.chapter,verse.study_notes.content.text,study_content.study_articles&limit=5"
 ```
 
+### `/api/v1/study/<book>/<chapter>/<verse_range>` (GET)
+Verse range endpoint that returns multiple verses combined with their study notes.
+
+**Path Parameters:**
+- `book` (integer): Bible book number (1-66)
+- `chapter` (integer): Chapter number  
+- `verse_range` (string): Verse range in format "start-end" (e.g., "19-20") or single verse "19"
+
+**Response:** JSON object with combined verse text and study notes
+```json
+{
+  "book_num": 40,
+  "book_name": "Matthew", 
+  "chapter": 24,
+  "verse_range": "19-20",
+  "combined_text": "Combined text of all verses in the range",
+  "study_notes": ["Array of study note texts from all verses in range"]
+}
+```
+
+**Examples:**
+```bash
+# Get verse range 19-20
+curl "http://localhost:8000/api/v1/study/40/24/19-20"
+
+# Get single verse (equivalent to 19-19)
+curl "http://localhost:8000/api/v1/study/40/24/19-19"
+
+# Longer range
+curl "http://localhost:8000/api/v1/study/40/24/18-21"
+
+# Production example
+curl "http://svrclapp1.cloudwise.ca:8000/api/v1/study/40/24/19-20"
+```
+
+**Note:** This endpoint does not support field filtering or query parameters - it returns a fixed response format optimized for verse ranges.
+
 ### `/health` and `/api/v1/health` (GET)
 Health check endpoints for monitoring service status.
 
@@ -83,6 +120,36 @@ Health check endpoints for monitoring service status.
 }
 ```
 
+**Note:** Health endpoints do NOT require authentication to allow for monitoring systems.
+
+## Authentication
+
+The API uses **HTTP Basic Authentication** for all endpoints except health checks.
+
+### Authentication Requirements
+- **Protected Endpoints**: All `/api/v1/verse/*` and `/api/v1/study/*` endpoints require authentication
+- **Public Endpoints**: `/health` and `/api/v1/health` are accessible without authentication
+- **Method**: HTTP Basic Authentication via `Authorization` header
+- **Format**: `Authorization: Basic <base64-encoded-credentials>`
+
+### Credentials Management
+- **Credentials File**: `credentials.txt` (must be created, see `credentials.txt.example`)
+- **File Format**: One credential per line as `username:password`
+- **Location**: Must be in the application root directory
+- **Security**: File is excluded from git via `.gitignore`
+
+### Authentication Responses
+- **Success**: Returns requested API data (200 OK)
+- **Missing Auth**: Returns 401 Unauthorized with HTML error page
+- **Invalid Credentials**: Returns 401 Unauthorized with HTML error page
+- **Server Error**: Returns 500 Internal Server Error if credentials file is missing
+
+### Implementation Details
+- **Guard**: `AuthGuard` implemented in `backend/src/guards/auth_guard.rs`
+- **Validation**: Real-time validation against credentials file for each request
+- **Base64 Decoding**: Automatic parsing of Basic Auth header format
+- **File I/O**: Reads credentials from file system on each authentication attempt
+
 ## Architecture
 
 The backend follows a layered architecture:
@@ -90,7 +157,7 @@ The backend follows a layered architecture:
 - **Routes** (`backend/src/routes/`): HTTP endpoints defined above
 - **Services** (`backend/src/services/`): Business logic for verse retrieval and dynamic scraping
 - **Models** (`backend/src/models/`): Data structures including `BibleVerse`, `StudyContent`, and `VerseWithStudy`
-- **Guards** (`backend/src/guards/`): Request guards like `DbGuard` for database connection management
+- **Guards** (`backend/src/guards/`): Request guards including `DbGuard` for database connection management and `AuthGuard` for HTTP Basic Authentication
 
 The main application entry point is `backend/src/main.rs` which initializes the Rocket server and PostgreSQL connection pool using sqlx.
 
@@ -99,7 +166,15 @@ The main application entry point is `backend/src/main.rs` which initializes the 
 The API implements dynamic content fetching from wol.jw.org when content is not cached:
 - **Verse Fetching**: If a verse is not found in the database, the system automatically scrapes it using `scrape_with_study_notes_docker.py`
 - **Study Content**: If study content is missing, it's scraped and cached automatically
+- **Force Refresh**: Using `fetch=true` clears existing cache and forces fresh scraping
+- **Study Notes**: Verse-level study notes are scraped and stored in the `study_notes` JSONB column
 - **Caching**: All scraped content is stored in PostgreSQL for future requests
+
+**Important**: When `fetch=true` is used, the system:
+1. Clears existing study content and study notes for the chapter
+2. Calls the Python scraper to fetch fresh data from wol.jw.org
+3. Re-queries the database to return updated study notes
+4. Takes significantly longer (~10-15 seconds vs ~200ms for cached)
 
 ## Development Commands
 
@@ -183,6 +258,7 @@ CREATE TABLE study_content (
 - **Rocket**: Web framework (version 0.5.0-rc.3)
 - **sqlx**: Database access with PostgreSQL support
 - **serde**: Serialization support
+- **base64**: Base64 encoding/decoding for HTTP Basic Authentication
 
 ## Database Management
 
@@ -212,9 +288,17 @@ docker exec -it wol-api_backend_1 python3 scripts/db_manager_docker.py
 
 The project includes Python scraping scripts in the `scripts/` directory:
 - **`scrape_with_study_notes_docker.py`**: Main scraper for verses and study content (Docker version)
+  - Extracts chapter-level study content (outline, study articles, cross references)
+  - Extracts verse-level study notes and updates existing verses with JSONB data
+  - Uses UPDATE statements to populate study_notes - verses must exist first
 - **`scrape_with_study_notes.py`**: Local version of the main scraper
 - **`scrape_research_guide_only.py`**: Specialized scraper for research guide content
 - **`setup_db.py`** and **`setup_study_db.py`**: Database setup utilities (legacy)
+
+**Scraper Behavior:**
+- Chapter-level content: INSERT if not exists, extracted from `#studyDiscover` section
+- Verse-level study notes: UPDATE existing verses only, extracted from `.studyNoteGroup` elements
+- Both are called automatically when content is missing or `fetch=true` is used
 
 ## Testing
 
@@ -233,14 +317,30 @@ Currently has basic integration tests in `backend/src/test_home.rs`. Tests use R
    - Check database connection in the scraping script
    - Verify the scraper is using the correct database (`wol-api`, not `postgres`)
 
-3. **Deployment conflicts with existing containers**
+3. **Study notes missing when using `fetch=true`**
+   - Fixed as of recent deployment - system now re-queries verse after scraping
+   - If still occurring, check that verses exist in database before scraper runs
+   - Scraper uses UPDATE statements and requires existing verse records
+
+4. **Field filtering not working with nested fields**
+   - Use dot notation: `verse.study_notes.content.text` not `verse.study_notes.text`
+   - Check that the field path exactly matches the JSON structure
+   - Use `limit` parameter to control array sizes in responses
+
+5. **Deployment conflicts with existing containers**
    - Clean up any manually created containers: `docker rm -f <container_id>`
    - Use GitHub Actions for deployment instead of manual Docker commands
 
-4. **Connection refused on port 8000**
+6. **Connection refused on port 8000**
    - Ensure the backend container is running: `docker ps | grep backend`
    - Check firewall rules: `sudo ufw allow 8000`
    - Verify the container is bound to the correct port
+
+7. **Authentication Issues**
+   - **401 Unauthorized**: Check that credentials are correctly formatted in `credentials.txt` as `username:password`
+   - **500 Internal Server Error**: Ensure `credentials.txt` file exists in the application root directory
+   - **Credentials not working**: Verify the file format matches `credentials.txt.example`
+   - **File not found**: Check that `credentials.txt` is being copied into the Docker container during build
 
 ## Quick Reference
 
@@ -258,15 +358,21 @@ docker exec -it wol-api_backend_1 python3 scripts/db_manager_docker.py
 # Test API locally
 curl "http://localhost:8000/api/v1/study/40/24/14?fields=verse.verse_text,study_content.study_articles&limit=5"
 
+# Test verse range locally
+curl "http://localhost:8000/api/v1/study/40/24/19-20"
+
 # Test API production  
 curl "http://svrclapp1.cloudwise.ca:8000/api/v1/study/40/24/14?fields=verse.verse_text,study_content.study_articles&limit=5"
+
+# Test verse range production
+curl "http://svrclapp1.cloudwise.ca:8000/api/v1/study/40/24/19-20"
 ```
 
 ### Key API Parameters Summary
-- **Path**: `book/chapter/verse` (all integers)
-- **fields**: Comma-separated field list for JSON filtering
-- **limit**: Maximum items for arrays
-- **fetch**: `true` forces fresh scraping (~10-15s), `false`/omitted uses cache (~200ms)
+- **Path**: `book/chapter/verse` (all integers) or `book/chapter/verse_range` (e.g., "19-20")
+- **fields**: Comma-separated field list for JSON filtering (study endpoint only)
+- **limit**: Maximum items for arrays (study endpoint only)
+- **fetch**: `true` forces fresh scraping (~10-15s), `false`/omitted uses cache (~200ms) (study endpoint only)
 
 ### Environment URLs
 - **Local**: `http://localhost:8000`

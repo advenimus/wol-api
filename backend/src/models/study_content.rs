@@ -31,3 +31,13 @@ pub struct VerseWithStudy {
     pub verse: super::bible_verse::BibleVerse,
     pub study_content: Option<StudyContent>,
 }
+
+#[derive(Serialize, Deserialize, Debug)]
+pub struct VerseRange {
+    pub book_num: i32,
+    pub book_name: String,
+    pub chapter: i32,
+    pub verse_range: String,
+    pub combined_text: String,
+    pub study_notes: Vec<String>,
+}

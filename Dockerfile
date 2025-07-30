@@ -12,6 +12,7 @@ VOLUME /home/appuser
 
 COPY ./backend /home/appuser/
 COPY ./scripts /home/appuser/scripts/
+COPY ./credentials.txt /home/appuser/credentials.txt
 
 # ensure rust is on the latest stable version
 # RUN rustup update && rustup default stable

@@ -1,12 +1,13 @@
 use rocket;
 
-use crate::{guards::db_guard::DbGuard, services};
+use crate::{guards::db_guard::DbGuard, guards::auth_guard::AuthGuard, services};
 
 #[rocket::get("/verse/<book>/<chapter>/<verse>")]
 pub async fn get_verse(
     book: i32,
     chapter: i32,
     verse: i32,
+    _auth_guard: AuthGuard,
     db: DbGuard<'_>,
 ) -> Result<String, String> {
     let verse = match services::verse_services::get_verse_from_table(

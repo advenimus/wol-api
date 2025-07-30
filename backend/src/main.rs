@@ -16,7 +16,7 @@ async fn entrypoint() -> rocket::Rocket<rocket::Build> {
     rocket::build()
         .manage(init_db_pool().await)
         .mount("/", rocket::routes![routes::health::health_check])
-        .mount("/api/v1", rocket::routes![home, routes::verse::get_verse, routes::study::get_verse_with_study, routes::health::health_check_v1])
+        .mount("/api/v1", rocket::routes![home, routes::verse::get_verse, routes::study::get_verse_with_study, routes::study::get_verse_range, routes::health::health_check_v1])
 }
 
 async fn init_db_pool() -> Pool<Postgres> {

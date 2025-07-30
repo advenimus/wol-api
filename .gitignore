@@ -4,3 +4,6 @@ target/
 ### cargo ###
 target/
 .DS_Store
+
+### authentication ###
+credentials.txt
