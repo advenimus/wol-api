@@ -14,14 +14,26 @@ def setup_database():
     )
     cur = conn.cursor()
     
-    # Create table if it doesn't exist
+    # Create tables if they don't exist
     cur.execute("""
         CREATE TABLE IF NOT EXISTS verses (
             book_num INTEGER NOT NULL,
-            book_name VARCHAR NOT NULL,
+            book_name TEXT NOT NULL,
             chapter INTEGER NOT NULL,
             verse_num INTEGER NOT NULL,
-            verse_text TEXT NOT NULL
+            verse_text TEXT NOT NULL,
+            study_notes JSONB
+        );
+    """)
+    
+    cur.execute("""
+        CREATE TABLE IF NOT EXISTS study_content (
+            id SERIAL PRIMARY KEY,
+            book_num INTEGER NOT NULL,
+            chapter INTEGER NOT NULL, 
+            outline TEXT[],
+            study_articles JSONB,
+            cross_references JSONB
         );
     """)
     
