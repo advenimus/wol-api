@@ -27,17 +27,20 @@ A powerful REST API that provides access to Bible verses and study content from 
 ### Installation
 
 1. **Clone the repository**
+
    ```bash
    git clone https://github.com/advenimus/wol-api.git
    cd wol-api
    ```
 
 2. **Start the services**
+
    ```bash
    docker-compose up --build
    ```
 
 3. **Initialize the database** (first time only)
+
    ```bash
    # Wait for containers to start, then run:
    docker exec -it wol-api-backend-1 python3 scripts/db_manager_docker.py
@@ -54,35 +57,42 @@ That's it! 🎉 Your WOL API is now running on `http://localhost:8000`
 ## 📖 API Documentation
 
 ### Base URL
+
 - **Local**: `http://localhost:8000`
-- **Production**: `http://svrclapp1.cloudwise.ca:8000`
 
 ### Endpoints
 
 #### 1. Basic Verse Retrieval
+
 ```
 GET /api/v1/verse/{book}/{chapter}/{verse}
 ```
+
 Returns plain text verse content.
 
 **Example:**
+
 ```bash
 curl "http://localhost:8000/api/v1/verse/40/24/14"
 # Returns: "Therefore, when you catch sight of the disgusting thing..."
 ```
 
 #### 2. Enhanced Study Endpoint
+
 ```
 GET /api/v1/study/{book}/{chapter}/{verse}
 ```
+
 Returns structured JSON with verse text, study notes, and research content.
 
 **Query Parameters:**
+
 - `fields` - Comma-separated list of fields to include
-- `limit` - Maximum items for arrays  
+- `limit` - Maximum items for arrays
 - `fetch` - Set to `true` to force fresh data from wol.jw.org
 
 **Available Fields:**
+
 - `verse.verse_text` - The Bible verse text
 - `verse.book_name` - Book name (e.g., "Matthew")
 - `verse.study_notes.content.text` - Study notes for the verse
@@ -90,6 +100,7 @@ Returns structured JSON with verse text, study notes, and research content.
 - `study_content.outline` - Chapter outline
 
 **Examples:**
+
 ```bash
 # Get verse with study notes
 curl "http://localhost:8000/api/v1/study/40/24/14?fields=verse.verse_text,verse.study_notes.content.text"
@@ -102,17 +113,20 @@ curl "http://localhost:8000/api/v1/study/40/24/14?fetch=true"
 ```
 
 #### 3. Verse Range Endpoint ⭐ New!
+
 ```
 GET /api/v1/study/{book}/{chapter}/{verse_range}
 ```
+
 Returns multiple consecutive verses combined with their study notes.
 
 **Examples:**
+
 ```bash
 # Get Matthew 24:19-20
 curl "http://localhost:8000/api/v1/study/40/24/19-20"
 
-# Single verse (equivalent to 19-19)  
+# Single verse (equivalent to 19-19)
 curl "http://localhost:8000/api/v1/study/40/24/19-19"
 
 # Longer range
@@ -120,6 +134,7 @@ curl "http://localhost:8000/api/v1/study/40/24/18-21"
 ```
 
 **Response Format:**
+
 ```json
 {
   "book_num": 40,
@@ -135,35 +150,40 @@ curl "http://localhost:8000/api/v1/study/40/24/18-21"
 ```
 
 #### 4. Health Check
+
 ```
 GET /health
 GET /api/v1/health
 ```
+
 Returns service status and database connectivity information.
 
 ## 📝 Bible Book Numbers
 
 Common book numbers for quick reference:
 
-| Book | Number | Book | Number | Book | Number |
-|------|--------|------|--------|------|--------|
-| Genesis | 1 | Psalms | 19 | Matthew | 40 |
-| Exodus | 2 | Proverbs | 20 | Mark | 41 |
-| 1 Samuel | 9 | Isaiah | 23 | Luke | 42 |
-| 2 Samuel | 10 | Jeremiah | 24 | John | 43 |
-| 1 Kings | 11 | Daniel | 27 | Acts | 44 |
-| 2 Kings | 12 | Malachi | 39 | Romans | 45 |
+| Book     | Number | Book     | Number | Book    | Number |
+| -------- | ------ | -------- | ------ | ------- | ------ |
+| Genesis  | 1      | Psalms   | 19     | Matthew | 40     |
+| Exodus   | 2      | Proverbs | 20     | Mark    | 41     |
+| 1 Samuel | 9      | Isaiah   | 23     | Luke    | 42     |
+| 2 Samuel | 10     | Jeremiah | 24     | John    | 43     |
+| 1 Kings  | 11     | Daniel   | 27     | Acts    | 44     |
+| 2 Kings  | 12     | Malachi  | 39     | Romans  | 45     |
 
 [Complete list available in the codebase]
 
 ## 🔧 Configuration
 
 ### Environment Variables
+
 - `DATABASE_URL` - PostgreSQL connection string (default: `postgresql://postgres:postgres@db:5432/wol-api`)
 - `ROCKET_PORT` - API server port (default: 8000)
 
 ### Docker Compose
+
 The included `docker-compose.yml` configures:
+
 - **Backend**: Rust API server on port 8000
 - **Database**: PostgreSQL with persistent storage
 - **Networking**: Internal Docker network for service communication
@@ -176,11 +196,12 @@ Use the interactive database manager for common tasks:
 # Local development
 docker exec -it wol-api-backend-1 python3 scripts/db_manager_docker.py
 
-# Production server  
+# Production server
 docker exec -it wol-api_backend_1 python3 scripts/db_manager_docker.py
 ```
 
 **Available Options:**
+
 1. **Setup Database** - Creates tables and populates with verse data
 2. **Delete Database** - Safely removes all data (with confirmation)
 3. **Run Custom Query** - Execute SQL queries with safety checks
@@ -195,6 +216,7 @@ docker exec -it wol-api_backend_1 python3 scripts/db_manager_docker.py
 ## 🛠️ Development
 
 ### Local Development
+
 ```bash
 # Start services
 docker-compose up --build
@@ -207,6 +229,7 @@ docker exec -it wol-api-backend-1 python3 scripts/db_manager_docker.py
 ```
 
 ### Manual Build (without Docker)
+
 ```bash
 cd backend
 cargo build --release
@@ -214,6 +237,7 @@ cargo run
 ```
 
 ### Testing
+
 ```bash
 cd backend
 cargo test
