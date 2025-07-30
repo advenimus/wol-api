@@ -12,7 +12,8 @@ VOLUME /home/appuser
 
 COPY ./backend /home/appuser/
 COPY ./scripts /home/appuser/scripts/
-COPY ./credentials.txt /home/appuser/credentials.txt
+# Note: credentials.txt must be created manually on the server for security
+# See credentials.txt.example for format
 
 # ensure rust is on the latest stable version
 # RUN rustup update && rustup default stable

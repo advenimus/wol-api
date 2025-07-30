@@ -209,7 +209,20 @@ The API implements dynamic content fetching from wol.jw.org when content is not 
 1. **Local Testing**: Always test changes with `docker-compose up --build` locally first
 2. **Commit & Push**: Push changes to main branch to trigger GitHub Actions
 3. **Automatic Deploy**: GitHub Actions deploys to svrclapp1.cloudwise.ca:8000
-4. **Verification**: Test production endpoints to confirm deployment success
+4. **Manual Credentials Setup**: Create `credentials.txt` file on production server (see Production Authentication Setup below)
+5. **Verification**: Test production endpoints to confirm deployment success
+
+### Production Authentication Setup
+Since `credentials.txt` is excluded from git for security, it must be created manually on the production server:
+
+**Steps:**
+1. SSH to production server: `ssh user@svrclapp1.cloudwise.ca`
+2. Navigate to the deployment directory: `cd ~/docker/wol-api`
+3. Create credentials file: `cp credentials.txt.example credentials.txt`
+4. Edit with actual credentials: `nano credentials.txt` (format: `username:password`)
+5. Restart containers: `docker-compose restart`
+
+**Security Note**: The credentials file is never committed to version control and must be managed separately on each environment.
 
 ## Database
 
