@@ -5,8 +5,8 @@
 
 set -e
 
-REMOTE_HOST="svrclapp1.cloudwise.ca"
-REMOTE_USER="cwappadmin"
+REMOTE_HOST="server"
+REMOTE_USER="username"
 REMOTE_DIR="~/docker/wol-api"
 LOCAL_DIR="."
 
