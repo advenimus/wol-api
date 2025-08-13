@@ -36,7 +36,7 @@ A powerful REST API that provides access to Bible verses and study content from 
 2. **Start the services**
 
    ```bash
-   docker-compose up --build
+   docker-compose up -d --build
    ```
 
 3. **Initialize the database** (first time only)

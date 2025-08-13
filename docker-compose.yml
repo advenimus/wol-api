@@ -29,6 +29,7 @@ services:
       - 5432:5432
     volumes:
       - postgres-db:/data/postgres
+      - ./db-init:/docker-entrypoint-initdb.d
     healthcheck:
       test: ["CMD", "pg_isready", "-U", "postgres"]
       interval: 5s
