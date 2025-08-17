@@ -23,6 +23,12 @@ COPY ./scripts /home/appuser/scripts/
 #     cargo build
 
 EXPOSE 8000
-CMD ["cargo", "run", "--bin", "backend"]
+
+# Make scripts executable
+RUN chmod +x /home/appuser/scripts/*.sh
+RUN chmod +x /home/appuser/scripts/*.py
+
+# Start both the health monitor and the main backend
+CMD ["/home/appuser/scripts/start_services.sh"]
 
 # http://127.0.0.1:8000/api/v1/bible-verses
