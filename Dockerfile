@@ -16,8 +16,6 @@ COPY ./data /home/appuser/data/
 # Note: credentials.txt must be created manually on the server for security
 # See credentials.txt.example for format
 
-# Make startup script executable
-RUN chmod +x /home/appuser/scripts/startup.sh
 
 # ensure rust is on the latest stable version
 # RUN rustup update && rustup default stable
