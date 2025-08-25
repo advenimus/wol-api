@@ -1,6 +1,6 @@
 FROM rust:latest
 
-RUN apt-get update && apt-get --no-install-recommends install -y iputils-ping python3 python3-pip \
+RUN apt-get update && apt-get --no-install-recommends install -y iputils-ping python3 python3-pip postgresql-client \
     && rm -rf /var/lib/apt/lists/*
 
 # Install Python dependencies for scraping
@@ -12,8 +12,12 @@ VOLUME /home/appuser
 
 COPY ./backend /home/appuser/
 COPY ./scripts /home/appuser/scripts/
+COPY ./data /home/appuser/data/
 # Note: credentials.txt must be created manually on the server for security
 # See credentials.txt.example for format
+
+# Make startup script executable
+RUN chmod +x /home/appuser/scripts/startup.sh
 
 # ensure rust is on the latest stable version
 # RUN rustup update && rustup default stable

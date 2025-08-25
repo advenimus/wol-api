@@ -2,7 +2,7 @@
 """
 Auto Setup Database Script
 Automatically sets up the WOL API database without user interaction.
-Used by auto-recovery systems.
+Used by auto-recovery systems and startup scripts.
 """
 import sys
 import os
@@ -10,7 +10,7 @@ import os
 # Add the current directory to path so we can import the db_manager
 sys.path.append(os.path.dirname(os.path.abspath(__file__)))
 
-from db_manager import DatabaseManager
+from db_manager_docker import DatabaseManager
 
 def auto_setup():
     """Automatically setup database without user interaction"""
@@ -75,29 +75,31 @@ def auto_setup():
                 
             import json
             with open(verses_path, 'r') as f:
-                data = json.load(f)
+                verses_data = json.load(f)
             
-            verses = data.get('verses', [])
-            print(f"💾 Inserting {len(verses)} verses...")
+            print(f"💾 Inserting {len(verses_data)} verses...")
             
-            # Insert verses in batches
-            from psycopg2.extras import execute_values
-            batch_size = 1000
-            for i in range(0, len(verses), batch_size):
-                batch = verses[i:i+batch_size]
-                values = [
-                    (v['book_num'], v['book_name'], v['chapter'], v['verse_num'], v['verse_text'])
-                    for v in batch
-                ]
-                execute_values(
-                    cur,
-                    "INSERT INTO verses (book_num, book_name, chapter, verse_num, verse_text) VALUES %s",
-                    values,
-                    page_size=batch_size
-                )
+            # Insert verses one by one to match the original format
+            insert_query = """
+                INSERT INTO verses (book_num, book_name, chapter, verse_num, verse_text, study_notes)
+                VALUES (%s, %s, %s, %s, %s, %s)
+            """
+            
+            for i, verse in enumerate(verses_data):
+                cur.execute(insert_query, (
+                    verse['book_num'],
+                    verse['book_name'], 
+                    verse['chapter'],
+                    verse['verse_num'],
+                    verse['verse_text'],
+                    None  # study_notes initially null
+                ))
+                
+                if (i + 1) % 1000 == 0:
+                    print(f"📖 Inserted {i + 1} verses...")
                 
             db_manager.conn.commit()
-            print(f"✅ Database setup complete! Loaded {len(verses):,} verses.")
+            print(f"✅ Database setup complete! Loaded {len(verses_data):,} verses.")
         else:
             print(f"✅ Database already contains {verse_count:,} verses.")
             
